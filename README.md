@@ -8,76 +8,64 @@ flowchart TD
     CT[AWS CloudTrail] --> EB[Amazon EventBridge Rule]
     EB --> LI[AWS Lambda: CTIngest]
     LI --> DDB[(DynamoDB: CTEvents)]
-    LI --> S3[S3: Raw JSON (30d lifecycle)]
-    DDB --> LD[AWS Lambda: CTDetect (every 5 min)]
-    LD --> SNS[SNS Topic: CTAlerts]
-    SNS --> Email[Email Alert]
+    LI --> S3["S3: Raw JSON - 30d lifecycle"]
+    DDB --> LD["AWS Lambda: CTDetect - runs every 5 min"]
+    LD --> SNS[AWS SNS Topic: CTAlerts]
+    SNS --> Email[Email Notification]
+```
 
 
-🚀 Features
+## 🚀 Features
+- Detects **suspicious AWS IAM or console activity** (like unexpected logins or privilege changes) via CloudTrail.
+- Real-time ingestion using **EventBridge + Lambda + DynamoDB + SNS**.
+- **Automated anomaly scoring** and alert generation.
+- **Email alerts** for high-risk activities (via AWS SNS).
+- **Serverless + Free Tier friendly** — no EC2, no paid services required.
+- S3 logs auto-expire in 30 days to stay within free-tier limits.
 
-Filters sensitive activity (Console logins, IAM changes) via EventBridge
+---
 
-CTIngest Lambda stores normalized events in DynamoDB and raw JSON in S3
+## 🧱 Stack
+**AWS Services Used:**
+- **CloudTrail** → Tracks all API activity.
+- **EventBridge** → Triggers Lambda on CloudTrail events.
+- **Lambda (Python)** → Processes, normalizes, and scores events.
+- **DynamoDB** → Stores normalized events.
+- **S3** → Stores raw CloudTrail logs (30-day lifecycle).
+- **SNS** → Sends alert notifications via email.
+- **IAM** → Role-based access for each Lambda function.
 
-CTDetect Lambda periodically scans, computes a risk score, and publishes an SNS alert
+---
 
-Minimal IAM; free-tier friendly (management events only; S3 lifecycle 30d)
+## ⚙️ Deployment Cheatsheet
+1. **Create an S3 Bucket**  
+   Enable default SSE-S3 encryption, set 30-day lifecycle expiration.
 
-🧰 Stack
+2. **Create a DynamoDB Table**  
+   Name: `CTEvents`  
+   Partition key: `pk (String)`
 
-CloudTrail • EventBridge • Lambda (Python) • DynamoDB • SNS • CloudWatch • IAM
+3. **Create an SNS Topic**  
+   Name: `CTAlerts`  
+   Add your email subscription and confirm via the email you receive.
 
-⚙️ Deployment Cheatsheet
+4. **IAM Roles**  
+   Grant these permissions:
+   - `dynamodb:PutItem`, `dynamodb:Scan`, `sns:Publish`, `s3:PutObject`, `logs:*`
 
-S3 bucket for raw: enable default SSE-S3; lifecycle expire after 30d.
+5. **Deploy Lambda Functions**  
+   - `CTIngest`: Parses and writes normalized CloudTrail data to DynamoDB/S3  
+   - `CTDetect`: Scans DynamoDB, computes scores, and triggers SNS alerts
 
-DynamoDB table: CTEvents with partition key pk (String).
+6. **EventBridge Rule**  
+   - Pattern: Triggers CTIngest Lambda when new CloudTrail logs arrive.
 
-SNS topic: CTAlerts (add email subscription and confirm).
+7. **Scheduler**  
+   - Runs CTDetect Lambda every 5 minutes.
 
-IAM roles
+---
 
-CTIngestRole → dynamodb:PutItem, s3:PutObject, logs:*
+## 📧 Sample Alert
+**Subject:** `Anomalous AWS Activity Detected`  
+**Message:**
 
-CTDetectRole → dynamodb:Scan|PutItem, sns:Publish, logs:*
-
-Lambdas
-
-CTIngest env: TABLE_NAME=CTEvents, RAW_BUCKET=<your-bucket>
-
-CTDetect env: TABLE_NAME=CTEvents, SNS_TOPIC=<topic-arn>
-
-EventBridge
-
-Rule (pattern) → target CTIngest (see event_pattern.json)
-
-Scheduler rate(5 minutes) → target CTDetect
-
-🔐 Event pattern (high-value activity)
-
-See event_pattern.json in this repo.
-
-📧 Alert sample
-
-Subject: Anomalous AWS activity detected
-Message: ConsoleLogin from 203.0.113.10 @ 2025-11-05T12:00:00Z score=5.23
-
-🛠 Future improvements
-
-CloudWatch Dashboard
-
-Isolation Forest model for scoring
-
-DynamoDB TTL for auto cleanup
-
-Author
-
-Karmanya Jamwal — Built with ☕ + Python + lots of debugging.
-
-
-## 3) Add the Lambda code files
-- Click **Add file → Create new file**
-  - **File name:** `lambda_ingest.py`
-  - Paste the code below
-  - **Commit changes** (message: `feat: add CTIngest lambda`)
