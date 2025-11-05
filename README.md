@@ -69,3 +69,10 @@ flowchart TD
 **Subject:** `Anomalous AWS Activity Detected`  
 **Message:**
 
+## 🧩 Lambda Functions
+| Function | Path | Env vars |
+|---|---|---|
+| CTIngest | `lambdas/lambda_ingest.py` | `TABLE_NAME`, `RAW_BUCKET` |
+| CTDetect | `lambdas/lambda_detect.py` | `TABLE_NAME`, `SNS_TOPIC`, `THRESHOLD` (optional) |
+
+
